@@ -1,4 +1,4 @@
-opencv-contrib-python>=4.8   # needed for cv2.face (LBPH) - use opencv-contrib-python-headless on servers
+opencv-contrib-python-headless>=4.8
 numpy>=1.24
 pandas>=2.0
 streamlit>=1.50
