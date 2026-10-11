@@ -1,0 +1,134 @@
+/* ===== Face Attendance - Modern UI ===== */
+
+.stApp {
+    background: linear-gradient(135deg, #0b1120 0%, #111827 55%, #172554 100%);
+    color: #f8fafc;
+}
+
+header[data-testid="stHeader"] {
+    background: transparent;
+}
+
+.block-container {
+    padding-top: 2rem;
+    padding-bottom: 3rem;
+    max-width: 1200px;
+}
+
+h1, h2, h3 {
+    color: #f8fafc !important;
+    font-weight: 700 !important;
+}
+
+p, label, .stMarkdown {
+    color: #dbe4f0;
+}
+
+/* Hero header */
+.hero-box {
+    padding: 28px;
+    margin-bottom: 24px;
+    border-radius: 20px;
+    background: linear-gradient(120deg, #1e3a8a, #6d28d9);
+    border: 1px solid rgba(255,255,255,0.12);
+    box-shadow: 0 12px 35px rgba(0,0,0,0.22);
+}
+
+.hero-box h1 {
+    margin: 0 0 8px 0;
+    color: white !important;
+    font-size: 30px;
+}
+
+.hero-box p {
+    margin: 0;
+    color: #e0e7ff;
+    font-size: 15px;
+}
+
+/* Metrics */
+div[data-testid="stMetric"] {
+    background: rgba(30, 41, 59, 0.85);
+    border: 1px solid #334155;
+    padding: 20px;
+    border-radius: 16px;
+    box-shadow: 0 5px 18px rgba(0,0,0,0.12);
+}
+
+div[data-testid="stMetricLabel"] {
+    color: #cbd5e1 !important;
+}
+
+div[data-testid="stMetricValue"] {
+    color: #a5b4fc !important;
+    font-weight: 800;
+}
+
+/* Tabs */
+button[data-baseweb="tab"] {
+    color: #cbd5e1;
+    font-weight: 600;
+}
+
+button[data-baseweb="tab"][aria-selected="true"] {
+    color: #a5b4fc !important;
+}
+
+/* Buttons */
+.stButton > button,
+.stDownloadButton > button {
+    background: linear-gradient(100deg, #4f46e5, #7c3aed);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    padding: 0.55rem 1.2rem;
+    font-weight: 600;
+    transition: 0.2s ease;
+}
+
+.stButton > button:hover,
+.stDownloadButton > button:hover {
+    background: linear-gradient(100deg, #4338ca, #6d28d9);
+    border: none;
+    transform: translateY(-1px);
+}
+
+/* Inputs */
+input, textarea {
+    border-radius: 10px !important;
+}
+
+div[data-testid="stFileUploader"] {
+    background: rgba(30, 41, 59, 0.65);
+    border: 1px dashed #64748b;
+    padding: 12px;
+    border-radius: 14px;
+}
+
+/* Dataframes and tables */
+div[data-testid="stDataFrame"],
+div[data-testid="stTable"] {
+    border: 1px solid #334155;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+/* Alerts */
+div[data-testid="stAlert"] {
+    border-radius: 12px;
+}
+
+/* Sidebar */
+section[data-testid="stSidebar"] {
+    background: #0f172a;
+    border-right: 1px solid #263449;
+}
+
+/* Hide Streamlit branding */
+#MainMenu {
+    visibility: hidden;
+}
+
+footer {
+    visibility: hidden;
+}
