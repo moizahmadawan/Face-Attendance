@@ -2,42 +2,80 @@
 """Streamlit dashboard for the Face Recognition Attendance System."""
 
 from datetime import date, timedelta
+from pathlib import Path
 
 import cv2
 import pandas as pd
 import streamlit as st
 
-from pathlib import Path
-import streamlit as st
-
-# Load external CSS
-def load_css():
-    css_path = Path(__file__).resolve().parent / "style.css"
-    if css_path.exists():
-        css = css_path.read_text(encoding="utf-8")
-        st.markdown(f"<style>{css}</style>", unsafe_allow_html=True)
-
-load_css()
-
 import database as db
 import face_utils as fu
 
+
+# ===================== PAGE CONFIG =====================
+
 st.set_page_config(
     page_title="Face Attendance",
-    page_icon="🧑‍💻",
+    page_icon="FA",
     layout="wide",
 )
 
+
+# ===================== LOAD EXTERNAL CSS =====================
+
+def load_css():
+    """Load dashboard styles from style.css."""
+    css_path = Path(__file__).resolve().parent / "style.css"
+
+    if css_path.exists():
+        css = css_path.read_text(encoding="utf-8")
+        st.markdown(
+            f"<style>{css}</style>",
+            unsafe_allow_html=True,
+        )
+
+
+load_css()
+
+
+# ===================== DATABASE INITIALIZATION =====================
+
 db.init_db()
 
-st.title("🧑‍💻 Face Recognition Attendance System")
 
-tab_today, tab_reports, tab_students, tab_scan = st.tabs(
-    ["📅 Today", "📊 Reports", "👥 Students", "📸 Take Attendance"]
+# ===================== DASHBOARD HEADER =====================
+
+st.markdown(
+    """
+    <div class="hero-box">
+        <div class="hero-label">ATTENDANCE MANAGEMENT</div>
+        <h1>Face Attendance System</h1>
+        <p>
+            Intelligent attendance tracking, student management,
+            and attendance reporting in one place.
+        </p>
+    </div>
+    """,
+    unsafe_allow_html=True,
 )
 
 
+# ===================== NAVIGATION TABS =====================
+
+tab_today, tab_reports, tab_students, tab_scan = st.tabs(
+    [
+        "Overview",
+        "Reports",
+        "Students",
+        "Take Attendance",
+    ]
+)
+
+
+# ===================== HELPER FUNCTIONS =====================
+
 def students_df():
+    """Return registered students and their face sample counts."""
     students = db.list_students()
 
     columns = ["id", "roll_no", "name", "created_at"]
@@ -54,51 +92,73 @@ def students_df():
     return df
 
 
-# ===================== TODAY =====================
+# ===================== OVERVIEW =====================
+
 with tab_today:
     today = date.today().isoformat()
 
     students = db.list_students()
     present = db.present_on(today)
 
-    present_ids = {row["student_id"] for row in present}
+    present_ids = {
+        row["student_id"]
+        for row in present
+    }
+
+    total_students = len(students)
+    total_present = len(present_ids)
+    total_absent = max(total_students - total_present, 0)
+
+    st.subheader("Today's Overview")
 
     col1, col2, col3 = st.columns(3)
 
-    col1.metric("Total students", len(students))
-    col2.metric("Present today", len(present_ids))
-    col3.metric(
-        "Absent today",
-        max(len(students) - len(present_ids), 0),
+    col1.metric(
+        "Total Students",
+        total_students,
     )
+
+    col2.metric(
+        "Present Today",
+        total_present,
+    )
+
+    col3.metric(
+        "Absent Today",
+        total_absent,
+    )
+
+    st.divider()
 
     left, right = st.columns(2)
 
     with left:
-        st.subheader("✅ Present")
+        st.subheader("Present Students")
 
         if present:
-            df = pd.DataFrame(present)[
+            present_df = pd.DataFrame(present)[
                 ["roll_no", "name", "time"]
             ]
 
             st.dataframe(
-                df,
+                present_df,
                 width="stretch",
                 hide_index=True,
             )
 
             st.download_button(
-                "Download CSV",
-                data=df.to_csv(index=False),
+                "Download Attendance CSV",
+                data=present_df.to_csv(index=False),
                 file_name=f"attendance_{today}.csv",
                 mime="text/csv",
+                key="download_present",
             )
+
         else:
-            st.info("Nobody marked present yet.")
+            st.info("No students have been marked present today.")
 
     with right:
-        st.subheader("❌ Absent")
+        st.subheader("Absent Students")
 
         absent = [
             student
@@ -107,27 +167,39 @@ with tab_today:
         ]
 
         if absent:
+            absent_df = pd.DataFrame(absent)[
+                ["roll_no", "name"]
+            ]
+
             st.dataframe(
-                pd.DataFrame(absent)[["roll_no", "name"]],
+                absent_df,
                 width="stretch",
                 hide_index=True,
             )
+
         elif students:
-            st.success("Everyone is present!")
+            st.success("All registered students are present.")
+
         else:
-            st.info("No students registered yet.")
+            st.info("No students have been registered yet.")
 
 
-# ===================== REPORTS =====================
+# ===================== ATTENDANCE REPORTS =====================
+
 with tab_reports:
-    st.subheader("Attendance report")
+    st.subheader("Attendance Reports")
+
+    st.caption(
+        "Review attendance records and student attendance percentages."
+    )
 
     date_range = st.date_input(
-        "Date range",
+        "Select Date Range",
         value=(
             date.today() - timedelta(days=30),
             date.today(),
         ),
+        key="report_date_range",
     )
 
     if isinstance(date_range, (tuple, list)) and len(date_range) == 2:
@@ -135,13 +207,21 @@ with tab_reports:
         end_date = date_range[1].isoformat()
 
         if start_date > end_date:
-            st.error("Start date must be before end date.")
+            st.error("The start date must be before the end date.")
+
         else:
-            rows = db.attendance_between(start_date, end_date)
+            rows = db.attendance_between(
+                start_date,
+                end_date,
+            )
 
             if rows:
                 report_df = pd.DataFrame(rows)
-                days = max(report_df["date"].nunique(), 1)
+
+                days = max(
+                    report_df["date"].nunique(),
+                    1,
+                )
 
                 counts = (
                     report_df.groupby(["roll_no", "name"])
@@ -149,7 +229,9 @@ with tab_reports:
                     .reset_index(name="days_present")
                 )
 
-                summary = students_df()[["roll_no", "name"]].merge(
+                summary = students_df()[
+                    ["roll_no", "name"]
+                ].merge(
                     counts,
                     on=["roll_no", "name"],
                     how="left",
@@ -167,12 +249,18 @@ with tab_reports:
 
                 st.caption(
                     f"{days} date(s) with recorded attendance "
-                    "in this range"
+                    "in the selected range."
                 )
 
-                st.bar_chart(
-                    summary.set_index("name")["attendance_%"]
-                )
+                st.subheader("Attendance Percentage")
+
+                chart_df = summary.set_index("name")[
+                    ["attendance_%"]
+                ]
+
+                st.bar_chart(chart_df)
+
+                st.subheader("Student Summary")
 
                 st.dataframe(
                     summary,
@@ -180,7 +268,7 @@ with tab_reports:
                     hide_index=True,
                 )
 
-                st.markdown("**Detailed log**")
+                st.subheader("Detailed Attendance Log")
 
                 details = report_df[
                     ["date", "time", "roll_no", "name"]
@@ -193,59 +281,105 @@ with tab_reports:
                 )
 
                 st.download_button(
-                    "Download full log (CSV)",
+                    "Download Full Report CSV",
                     data=report_df.to_csv(index=False),
-                    file_name=f"attendance_{start_date}_{end_date}.csv",
+                    file_name=(
+                        f"attendance_{start_date}_{end_date}.csv"
+                    ),
                     mime="text/csv",
+                    key="download_full_report",
                 )
+
             else:
-                st.info("No attendance records in this range.")
+                st.info(
+                    "No attendance records were found "
+                    "for the selected date range."
+                )
+
     else:
         st.info("Select both a start date and an end date.")
 
 
-# ===================== STUDENTS =====================
+# ===================== STUDENT MANAGEMENT =====================
+
 with tab_students:
-    st.subheader("Registered students")
+    st.subheader("Registered Students")
 
     sdf = students_df()
 
     if sdf.empty:
-        st.info("No students yet. Add one below.")
+        st.info(
+            "No students have been registered yet. "
+            "Use the form below to add a student."
+        )
+
     else:
         st.dataframe(
-            sdf[["roll_no", "name", "samples", "created_at"]],
+            sdf[
+                ["roll_no", "name", "samples", "created_at"]
+            ],
             width="stretch",
             hide_index=True,
         )
 
+        st.download_button(
+            "Download Student List CSV",
+            data=sdf[
+                ["roll_no", "name", "samples", "created_at"]
+            ].to_csv(index=False),
+            file_name="registered_students.csv",
+            mime="text/csv",
+            key="download_students",
+        )
+
     st.divider()
-    st.subheader("➕ Register a student")
+
+    st.subheader("Register a Student")
 
     st.caption(
-        "Upload clear, front-facing photos in good lighting. "
-        "Use multiple photos for better recognition."
+        "Upload clear, front-facing photos with good lighting. "
+        "Multiple photos can improve recognition performance."
     )
 
-    with st.form("register_form", clear_on_submit=True):
-        roll = st.text_input("Roll number")
-        name = st.text_input("Full name")
+    with st.form(
+        "register_form",
+        clear_on_submit=True,
+    ):
+        roll = st.text_input(
+            "Roll Number",
+            placeholder="Enter student roll number",
+        )
+
+        name = st.text_input(
+            "Full Name",
+            placeholder="Enter student's full name",
+        )
 
         uploads = st.file_uploader(
-            "Upload face photos",
+            "Upload Face Photos",
             type=["jpg", "jpeg", "png"],
             accept_multiple_files=True,
         )
 
-        snapshot = st.camera_input("Or take a photo")
+        snapshot = st.camera_input(
+            "Or Take a Student Photo",
+        )
 
-        submitted = st.form_submit_button("Register & train")
+        submitted = st.form_submit_button(
+            "Register Student and Train Model",
+        )
 
     if submitted:
         if not roll.strip() or not name.strip():
-            st.error("Roll number and name are required.")
+            st.error(
+                "Both roll number and full name are required."
+            )
+
         else:
-            uploaded_data = [file.getvalue() for file in (uploads or [])]
+            uploaded_data = [
+                file.getvalue()
+                for file in (uploads or [])
+            ]
 
             if snapshot is not None:
                 uploaded_data.append(snapshot.getvalue())
@@ -264,50 +398,66 @@ with tab_students:
                     box = fu.largest_face(boxes)
 
                     if box is not None:
-                        faces.append(fu.preprocess(gray, box))
+                        faces.append(
+                            fu.preprocess(gray, box)
+                        )
 
                 if not faces:
                     st.error(
-                        "No face detected. Upload clear, front-facing "
-                        "photos with good lighting."
+                        "No face was detected. Upload clear, "
+                        "front-facing photos with good lighting."
                     )
+
                 else:
-                    existing = db.get_student_by_roll(roll.strip())
+                    existing = db.get_student_by_roll(
+                        roll.strip()
+                    )
 
                     if existing:
                         student_id = existing["id"]
+
                         st.info(
                             "This roll number already exists. "
-                            "New face samples will be added."
+                            "The new face samples will be added "
+                            "to the existing student."
                         )
+
                     else:
                         student_id = db.add_student(
                             roll.strip(),
                             name.strip(),
                         )
 
-                    fu.save_samples(student_id, faces)
+                    fu.save_samples(
+                        student_id,
+                        faces,
+                    )
+
                     total = fu.train()
 
                     st.success(
-                        f"Registered {name.strip()}. "
-                        f"Found {len(faces)} usable face photo(s). "
-                        f"Model trained on {total} image(s)."
+                        f"Student {name.strip()} registered. "
+                        f"Usable photos: {len(faces)}. "
+                        f"Total training images: {total}."
                     )
 
                     if len(faces) < 5:
                         st.warning(
                             "Fewer than 5 usable photos were found. "
-                            "Add more varied photos for better results."
+                            "Consider adding more photos from "
+                            "different angles and lighting conditions."
                         )
 
                     st.rerun()
 
             except Exception as exc:
-                st.error(f"Registration failed: {exc}")
+                st.error(
+                    f"Student registration failed: {exc}"
+                )
 
     st.divider()
-    st.subheader("🗑 Delete a student")
+
+    st.subheader("Delete a Student")
 
     if not sdf.empty:
         options = {
@@ -315,14 +465,23 @@ with tab_students:
             for row in sdf.itertuples()
         }
 
-        choice = st.selectbox("Select student", list(options.keys()))
-
-        confirmed = st.checkbox(
-            "I understand this deletes the student, their photos "
-            "and attendance records."
+        choice = st.selectbox(
+            "Select Student",
+            list(options.keys()),
+            key="delete_student_choice",
         )
 
-        if st.button("Delete student", disabled=not confirmed):
+        confirmed = st.checkbox(
+            "I understand that this deletes the student, "
+            "their photos, and attendance records.",
+            key="confirm_delete_student",
+        )
+
+        if st.button(
+            "Delete Student",
+            disabled=not confirmed,
+            key="delete_student_button",
+        ):
             student_id = options[choice]
 
             try:
@@ -335,37 +494,49 @@ with tab_students:
                     # No training samples remain.
                     pass
 
-                st.success("Student deleted.")
+                st.success("Student deleted successfully.")
                 st.rerun()
 
             except Exception as exc:
-                st.error(f"Could not delete student: {exc}")
+                st.error(
+                    f"Could not delete the student: {exc}"
+                )
 
 
 # ===================== TAKE ATTENDANCE =====================
+
 with tab_scan:
-    st.subheader("📸 Mark attendance from a photo")
+    st.subheader("Take Attendance")
 
     st.caption(
-        "Capture a photo or upload a class photo. "
-        "Check recognition results before relying on attendance records."
+        "Capture a photo or upload an image to identify registered "
+        "students. Review the results before relying on attendance records."
     )
 
     try:
         recognizer = fu.load_recognizer()
+
     except Exception as exc:
         recognizer = None
-        st.error(f"Could not load the recognition model: {exc}")
+
+        st.error(
+            f"Could not load the recognition model: {exc}"
+        )
 
     if recognizer is None:
         st.warning(
-            "No trained model found. Register students with face photos first."
+            "No trained model was found. Register students with "
+            "face photos before taking attendance."
         )
+
     else:
-        snapshot = st.camera_input("Take attendance photo")
+        snapshot = st.camera_input(
+            "Capture Attendance Photo",
+            key="attendance_camera",
+        )
 
         upload = st.file_uploader(
-            "Or upload a photo",
+            "Or Upload an Attendance Photo",
             type=["jpg", "jpeg", "png"],
             key="scan_upload",
         )
@@ -373,30 +544,44 @@ with tab_scan:
         image_data = (
             snapshot.getvalue()
             if snapshot is not None
-            else upload.getvalue() if upload is not None else None
+            else (
+                upload.getvalue()
+                if upload is not None
+                else None
+            )
         )
 
         if image_data:
             frame = fu.decode_image(image_data)
 
             if frame is None:
-                st.error("The uploaded image could not be read.")
+                st.error(
+                    "The uploaded image could not be read."
+                )
+
             else:
                 students = db.list_students()
+
                 names = {
                     student["id"]: student["name"]
                     for student in students
                 }
 
                 try:
-                    results = fu.recognize(frame, recognizer)
+                    results = fu.recognize(
+                        frame,
+                        recognizer,
+                    )
 
                     if not results:
                         st.warning(
-                            "No faces detected. Try a clearer photo "
-                            "with better lighting."
+                            "No faces were detected. Try a clearer "
+                            "photo with better lighting."
                         )
+
                     else:
+                        st.subheader("Recognition Results")
+
                         for result in results:
                             student_id = result["student_id"]
 
@@ -404,20 +589,26 @@ with tab_scan:
                                 student_id is not None
                                 and student_id in names
                             ):
-                                marked = db.mark_attendance(student_id)
+                                marked = db.mark_attendance(
+                                    student_id
+                                )
 
                                 if marked:
                                     st.success(
-                                        f"✅ {names[student_id]} marked present."
+                                        f"{names[student_id]} "
+                                        "marked present."
                                     )
+
                                 else:
                                     st.info(
-                                        f"ℹ️ {names[student_id]} "
-                                        "was already marked today."
+                                        f"{names[student_id]} "
+                                        "was already marked present today."
                                     )
+
                             else:
                                 st.warning(
-                                    "❓ Unknown face. Verify identity manually."
+                                    "Unknown face detected. "
+                                    "Verify the person's identity manually."
                                 )
 
                         annotated = fu.annotate(
@@ -426,154 +617,17 @@ with tab_scan:
                             names,
                         )
 
+                        st.subheader("Processed Image")
+
                         st.image(
-                            cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB),
+                            cv2.cvtColor(
+                                annotated,
+                                cv2.COLOR_BGR2RGB,
+                            ),
                             width="stretch",
                         )
 
                 except Exception as exc:
-                    st.error(f"Attendance scanning failed: {exc}")
-
-
-# ===================== CUSTOM UI THEME =====================
-st.markdown("""
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-
-:root {
-    --app-bg: #0b1120;
-    --card-bg: #151f32;
-    --border: #29364c;
-    --text: #f1f5f9;
-    --muted: #9caec5;
-    --accent: #818cf8;
-    --accent-2: #38bdf8;
-}
-
-.stApp {
-    background:
-        radial-gradient(ellipse at top left, #182547 0%, transparent 45%),
-        var(--app-bg);
-    color: var(--text);
-    font-family: 'Inter', sans-serif;
-}
-
-.block-container {
-    max-width: 1400px;
-    padding-top: 2.2rem;
-    padding-bottom: 3rem;
-}
-
-h1, h2, h3 {
-    color: #f8fafc !important;
-    font-weight: 750 !important;
-    letter-spacing: -0.6px;
-}
-
-h1 {
-    font-size: clamp(1.8rem, 4vw, 2.7rem) !important;
-}
-
-p, label, .stCaption {
-    color: var(--muted);
-}
-
-div[data-testid="stMetric"] {
-    background: linear-gradient(145deg, #192740, #121b2d);
-    border: 1px solid var(--border);
-    padding: 22px 24px;
-    border-radius: 18px;
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-    transition: transform 0.2s ease, border-color 0.2s ease;
-}
-
-div[data-testid="stMetric"]:hover {
-    transform: translateY(-3px);
-    border-color: #6875db;
-}
-
-div[data-testid="stMetricLabel"] {
-    color: #a8b7ce !important;
-    font-weight: 600;
-}
-
-div[data-testid="stMetricValue"] {
-    color: #ffffff !important;
-    font-weight: 800;
-}
-
-div[data-testid="stTabs"] button[role="tab"] {
-    border-radius: 12px;
-    padding: 12px 18px;
-    margin-right: 6px;
-    font-weight: 600;
-    transition: background 0.2s ease;
-}
-
-div[data-testid="stTabs"] button[aria-selected="true"] {
-    background: #29365c;
-    border-bottom: 2px solid #818cf8;
-    color: #ffffff;
-}
-
-div[data-testid="stVerticalBlockBorderWrapper"] {
-    border-radius: 16px;
-}
-
-div.stButton > button,
-div.stFormSubmitButton > button {
-    background: linear-gradient(110deg, #6366f1, #3b82f6);
-    color: #ffffff;
-    border: 0;
-    border-radius: 11px;
-    min-height: 44px;
-    font-weight: 700;
-    transition: all 0.2s ease;
-}
-
-div.stButton > button:hover,
-div.stFormSubmitButton > button:hover {
-    background: linear-gradient(110deg, #4f46e5, #2563eb);
-    border: 0;
-    box-shadow: 0 5px 18px rgba(99, 102, 241, 0.25);
-}
-
-div[data-testid="stDataFrame"] {
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    overflow: hidden;
-}
-
-div[data-baseweb="input"] > div,
-div[data-baseweb="select"] > div,
-div[data-baseweb="textarea"] > div {
-    background-color: #121d30;
-    border-color: #33445f;
-    border-radius: 10px;
-}
-
-div[data-testid="stFileUploader"] {
-    background: #121d30;
-    border: 1px dashed #52658b;
-    border-radius: 14px;
-    padding: 10px;
-}
-
-div[data-testid="stAlert"] {
-    border-radius: 12px;
-}
-
-hr {
-    border-color: #29364c;
-}
-
-footer {
-    visibility: hidden;
-}
-
-#MainMenu {
-    visibility: hidden;
-}
-</style>
-""", unsafe_allow_html=True)
-
+                    st.error(
+                        f"Attendance scanning failed: {exc}"
+                    )
