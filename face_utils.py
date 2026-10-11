@@ -12,7 +12,8 @@ import config
 # ===================== HAAR CASCADE =====================
 
 _CASCADE_PATH = (
-    Path(cv2.data.haarcascades)
+    Path(__file__).resolve().parent
+    / "cascade"
     / "haarcascade_frontalface_default.xml"
 )
 
