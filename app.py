@@ -421,3 +421,147 @@ with tab_scan:
 
                 except Exception as exc:
                     st.error(f"Attendance scanning failed: {exc}")
+
+
+# ===================== CUSTOM UI THEME =====================
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+:root {
+    --app-bg: #0b1120;
+    --card-bg: #151f32;
+    --border: #29364c;
+    --text: #f1f5f9;
+    --muted: #9caec5;
+    --accent: #818cf8;
+    --accent-2: #38bdf8;
+}
+
+.stApp {
+    background:
+        radial-gradient(ellipse at top left, #182547 0%, transparent 45%),
+        var(--app-bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+}
+
+.block-container {
+    max-width: 1400px;
+    padding-top: 2.2rem;
+    padding-bottom: 3rem;
+}
+
+h1, h2, h3 {
+    color: #f8fafc !important;
+    font-weight: 750 !important;
+    letter-spacing: -0.6px;
+}
+
+h1 {
+    font-size: clamp(1.8rem, 4vw, 2.7rem) !important;
+}
+
+p, label, .stCaption {
+    color: var(--muted);
+}
+
+div[data-testid="stMetric"] {
+    background: linear-gradient(145deg, #192740, #121b2d);
+    border: 1px solid var(--border);
+    padding: 22px 24px;
+    border-radius: 18px;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+div[data-testid="stMetric"]:hover {
+    transform: translateY(-3px);
+    border-color: #6875db;
+}
+
+div[data-testid="stMetricLabel"] {
+    color: #a8b7ce !important;
+    font-weight: 600;
+}
+
+div[data-testid="stMetricValue"] {
+    color: #ffffff !important;
+    font-weight: 800;
+}
+
+div[data-testid="stTabs"] button[role="tab"] {
+    border-radius: 12px;
+    padding: 12px 18px;
+    margin-right: 6px;
+    font-weight: 600;
+    transition: background 0.2s ease;
+}
+
+div[data-testid="stTabs"] button[aria-selected="true"] {
+    background: #29365c;
+    border-bottom: 2px solid #818cf8;
+    color: #ffffff;
+}
+
+div[data-testid="stVerticalBlockBorderWrapper"] {
+    border-radius: 16px;
+}
+
+div.stButton > button,
+div.stFormSubmitButton > button {
+    background: linear-gradient(110deg, #6366f1, #3b82f6);
+    color: #ffffff;
+    border: 0;
+    border-radius: 11px;
+    min-height: 44px;
+    font-weight: 700;
+    transition: all 0.2s ease;
+}
+
+div.stButton > button:hover,
+div.stFormSubmitButton > button:hover {
+    background: linear-gradient(110deg, #4f46e5, #2563eb);
+    border: 0;
+    box-shadow: 0 5px 18px rgba(99, 102, 241, 0.25);
+}
+
+div[data-testid="stDataFrame"] {
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+}
+
+div[data-baseweb="input"] > div,
+div[data-baseweb="select"] > div,
+div[data-baseweb="textarea"] > div {
+    background-color: #121d30;
+    border-color: #33445f;
+    border-radius: 10px;
+}
+
+div[data-testid="stFileUploader"] {
+    background: #121d30;
+    border: 1px dashed #52658b;
+    border-radius: 14px;
+    padding: 10px;
+}
+
+div[data-testid="stAlert"] {
+    border-radius: 12px;
+}
+
+hr {
+    border-color: #29364c;
+}
+
+footer {
+    visibility: hidden;
+}
+
+#MainMenu {
+    visibility: hidden;
+}
+</style>
+""", unsafe_allow_html=True)
+
