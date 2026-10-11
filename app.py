@@ -7,6 +7,18 @@ import cv2
 import pandas as pd
 import streamlit as st
 
+from pathlib import Path
+import streamlit as st
+
+# Load external CSS
+def load_css():
+    css_path = Path(__file__).resolve().parent / "style.css"
+    if css_path.exists():
+        css = css_path.read_text(encoding="utf-8")
+        st.markdown(f"<style>{css}</style>", unsafe_allow_html=True)
+
+load_css()
+
 import database as db
 import face_utils as fu
 
