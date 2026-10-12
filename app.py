@@ -179,7 +179,7 @@ with tab_students:
             unsafe_allow_html=True,
         )
         st.write("")
-       st.download_button(
+        st.download_button(
             "Download student list (CSV)",
             data=sdf[["roll_no", "name", "father_name", "samples", "created_at"]].to_csv(index=False),
             file_name="registered_students.csv",
@@ -187,7 +187,7 @@ with tab_students:
             key="dl_students",
         )
 
-       st.divider()
+        st.divider()
         st.subheader("Remove a student")
         options = {f"{r.roll_no} - {r.name}": int(r.id) for r in sdf.itertuples()}
         choice = st.selectbox("Select student", list(options.keys()), key="delete_student_choice")
