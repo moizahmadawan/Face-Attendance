@@ -179,7 +179,7 @@ with tab_students:
             unsafe_allow_html=True,
         )
         st.write("")
-        st.download_button(
+       st.download_button(
             "Download student list (CSV)",
             data=sdf[["roll_no", "name", "father_name", "samples", "created_at"]].to_csv(index=False),
             file_name="registered_students.csv",
