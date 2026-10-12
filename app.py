@@ -187,7 +187,7 @@ with tab_students:
             key="dl_students",
         )
 
-        st.divider()
+       st.divider()
         st.subheader("Remove a student")
         options = {f"{r.roll_no} - {r.name}": int(r.id) for r in sdf.itertuples()}
         choice = st.selectbox("Select student", list(options.keys()), key="delete_student_choice")
