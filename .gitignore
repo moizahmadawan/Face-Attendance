@@ -1,0 +1,11 @@
+venv/
+.venv/
+__pycache__/
+*.pyc
+.env
+dataset/
+trainer/
+avatars/
+exports/
+attendance.db
+*.pem

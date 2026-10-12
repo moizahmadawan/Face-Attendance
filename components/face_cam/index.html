@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Face camera</title>
+<style>
+:root{
+  --bg:#050b12; --surface:#0f1923; --surface2:#142230; --line:#223a4d;
+  --text:#eaf2f7; --muted:#8fa5b8; --mint:#3ee0b0; --mint-ink:#04130e;
+  --amber:#f5c25c; --coral:#ff7a6b; --sky:#5cc8ff;
+  --d:min(80vw, 56vh, 470px); color-scheme:dark;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:transparent;color:var(--text);
+  font-family:'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;
+  -webkit-tap-highlight-color:transparent;overflow:hidden}
+button{font:inherit;cursor:pointer;border:none}
+[hidden]{display:none!important}
+
+/* ---------- idle card ---------- */
+#idle{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:14px;text-align:center;padding:22px;border-radius:20px;
+  background:radial-gradient(420px 220px at 50% 0%,rgba(62,224,176,.12),transparent 70%),var(--surface);
+  border:1px solid var(--line)}
+.idle-orb{position:relative;width:104px;height:104px;border-radius:50%;
+  background:radial-gradient(circle at 50% 38%,#17394a,#0b1722);display:grid;place-items:center;
+  box-shadow:0 0 0 1px #2a4a60 inset}
+.idle-orb::before{content:"";position:absolute;inset:-9px;border-radius:50%;
+  border:2px dashed rgba(62,224,176,.55);animation:spin 16s linear infinite}
+.idle-orb{margin-bottom:10px}
+.idle-orb svg{width:50px;height:50px}
+@keyframes spin{to{transform:rotate(360deg)}}
+#idle h3{font-size:1.25rem;font-weight:700;letter-spacing:-.01em}
+#idle p{color:var(--muted);font-size:.93rem;line-height:1.5;max-width:380px}
+.btn{min-height:48px;padding:0 26px;border-radius:14px;background:var(--mint);color:var(--mint-ink);
+  font-weight:700;font-size:1rem;transition:transform .15s,box-shadow .15s,opacity .2s}
+.btn:hover{transform:translateY(-1px);box-shadow:0 10px 24px rgba(62,224,176,.28)}
+.btn:disabled{background:var(--surface2);color:#5d7284;box-shadow:none;transform:none;cursor:not-allowed}
+.btn.ghost{background:transparent;color:var(--text);border:1px solid var(--line)}
+#startHint{color:var(--amber);font-size:.86rem;min-height:1.2em}
+
+/* ---------- stage ---------- */
+#stage{position:relative;height:100%;width:100%;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:clamp(12px,2.6vh,24px);padding:70px 16px 22px;
+  background:radial-gradient(900px 520px at 50% 28%,#0d2230 0%,var(--bg) 62%);overflow:hidden}
+.top{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;
+  gap:10px;padding:14px 14px 0 14px}
+.chips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;flex:1}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;
+  font-size:.8rem;font-weight:600;color:var(--muted);background:rgba(20,34,48,.8);border:1px solid var(--line);
+  transition:all .25s}
+.chip i{width:7px;height:7px;border-radius:50%;background:#3a5266;font-style:normal}
+.chip.now{color:var(--text);border-color:var(--mint);background:rgba(62,224,176,.12)}
+.chip.now i{background:var(--mint);animation:blink 1s infinite}
+.chip.done{color:var(--mint-ink);background:var(--mint);border-color:var(--mint)}
+.chip.done i{background:var(--mint-ink)}
+@keyframes blink{50%{opacity:.25}}
+.iconbtn{flex:0 0 auto;width:40px;height:40px;border-radius:50%;background:rgba(20,34,48,.85);
+  border:1px solid var(--line);color:var(--text);display:grid;place-items:center;font-size:1.05rem}
+.iconbtn:hover{border-color:var(--mint)}
+.livebadge{position:absolute;top:62px;left:50%;transform:translateX(-50%);display:none}
+
+.wrap{position:relative;width:var(--d);height:var(--d);flex:0 0 auto}
+.circle{position:absolute;inset:7.5%;border-radius:50%;overflow:hidden;background:#000;
+  box-shadow:0 0 0 3px rgba(255,255,255,.06),0 20px 60px rgba(0,0,0,.6)}
+video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1);display:block}
+.circle.dim video{filter:brightness(.45) blur(3px)}
+.sweep{position:absolute;left:0;right:0;height:26%;top:-26%;pointer-events:none;
+  background:linear-gradient(180deg,transparent,rgba(62,224,176,.26),transparent);animation:sweep 2.6s ease-in-out infinite}
+@keyframes sweep{to{top:100%}}
+.ring{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.ring line{stroke:#1f3446;stroke-width:3.4;stroke-linecap:round;transition:stroke .2s}
+.ring line.on{stroke:var(--mint)}
+.ring line.warn{stroke:var(--amber)}
+.ring line.bad{stroke:var(--coral)}
+.guide{position:absolute;inset:7.5%;border-radius:50%;border:2px dashed rgba(255,255,255,.18);pointer-events:none}
+
+.badge{position:absolute;inset:7.5%;border-radius:50%;display:grid;place-items:center;pointer-events:none}
+.badge svg{width:38%;height:38%;filter:drop-shadow(0 6px 18px rgba(0,0,0,.5))}
+.badge .path{stroke-dasharray:60;stroke-dashoffset:60;animation:draw .6s .1s ease forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+
+.arrow{position:absolute;display:grid;place-items:center;width:15%;height:15%;color:var(--mint);
+  font-size:clamp(26px,7vw,44px);font-weight:800;pointer-events:none;opacity:0}
+.arrow.show{opacity:1}
+.arrow[data-dir=left]{left:-5%;top:42.5%;animation:nl 1s infinite}
+.arrow[data-dir=right]{right:-5%;top:42.5%;animation:nr 1s infinite}
+.arrow[data-dir=up]{top:-6%;left:42.5%;animation:nu 1s infinite}
+.arrow[data-dir=down]{bottom:-6%;left:42.5%;animation:nd 1s infinite}
+@keyframes nl{50%{transform:translateX(-10px)}}
+@keyframes nr{50%{transform:translateX(10px)}}
+@keyframes nu{50%{transform:translateY(-10px)}}
+@keyframes nd{50%{transform:translateY(10px)}}
+
+.msg{font-size:clamp(1.15rem,4.6vw,1.65rem);font-weight:700;text-align:center;letter-spacing:-.01em;
+  min-height:1.3em;padding:0 10px;transition:color .2s}
+.msg.good{color:var(--mint)} .msg.warn{color:var(--amber)} .msg.bad{color:var(--coral)}
+.sub{color:var(--muted);font-size:.95rem;text-align:center;min-height:1.3em;max-width:420px;line-height:1.45;padding:0 10px}
+.card{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center}
+.pill{padding:7px 14px;border-radius:999px;background:rgba(62,224,176,.12);border:1px solid rgba(62,224,176,.4);
+  color:var(--mint);font-weight:700;font-size:.92rem;letter-spacing:.02em}
+.pill.plain{background:rgba(20,34,48,.9);border-color:var(--line);color:var(--text)}
+
+#loader{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:12px;background:rgba(5,11,18,.92);z-index:5;color:var(--muted)}
+.spinner{width:42px;height:42px;border-radius:50%;border:4px solid #1f3446;border-top-color:var(--mint);animation:spin 0.9s linear infinite}
+
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<section id="idle">
+  <div class="idle-orb">
+    <svg viewBox="0 0 64 64" fill="none" aria-hidden="true">
+      <path d="M8 22V12a4 4 0 0 1 4-4h10M42 8h10a4 4 0 0 1 4 4v10M56 42v10a4 4 0 0 1-4 4H42M22 56H12a4 4 0 0 1-4-4V42"
+            stroke="#3ee0b0" stroke-width="3.4" stroke-linecap="round"/>
+      <circle cx="32" cy="26" r="8.5" stroke="#9fd8ff" stroke-width="3"/>
+      <path d="M17 49c2.4-9 8.4-13.5 15-13.5S44.6 40 47 49" stroke="#9fd8ff" stroke-width="3" stroke-linecap="round"/>
+    </svg>
+  </div>
+  <h3 id="idleTitle">Live face verification</h3>
+  <p id="idleText"></p>
+  <button class="btn" id="startBtn" type="button">Start camera</button>
+  <div id="startHint"></div>
+</section>
+
+<section id="stage" hidden>
+  <div class="top">
+    <div class="chips" id="chips"></div>
+    <button class="iconbtn" id="muteBtn" type="button" aria-label="Voice on/off">🔊</button>
+    <button class="iconbtn" id="closeBtn" type="button" aria-label="Close camera">✕</button>
+  </div>
+
+  <div class="wrap" id="wrap">
+    <svg class="ring" id="ring" viewBox="0 0 400 400" aria-hidden="true"></svg>
+    <div class="circle" id="circle">
+      <video id="video" playsinline muted autoplay></video>
+      <div class="sweep" id="sweep"></div>
+    </div>
+    <div class="guide"></div>
+    <div class="badge" id="badge" hidden></div>
+    <div class="arrow" data-dir="left">&#10094;</div>
+    <div class="arrow" data-dir="right">&#10095;</div>
+    <div class="arrow" data-dir="up">&#10094;</div>
+    <div class="arrow" data-dir="down">&#10095;</div>
+  </div>
+
+  <div class="msg" id="msg"></div>
+  <div class="sub" id="sub"></div>
+  <div class="card" id="card"></div>
+  <div class="card" id="actions"></div>
+
+  <div id="loader"><div class="spinner"></div><div id="loaderText">Loading face engine…</div></div>
+</section>
+
+<canvas id="work" width="224" height="224" hidden></canvas>
+<canvas id="small" width="32" height="32" hidden></canvas>
+
+<script>
+/* ================= Streamlit component protocol ================= */
+const sl = (type, data = {}) => window.parent.postMessage({ isStreamlitMessage: true, type, ...data }, "*");
+const setHeight = h => sl("streamlit:setFrameHeight", { height: h });
+const setValue = v => sl("streamlit:setComponentValue", { value: v, dataType: "json" });
+
+const $ = id => document.getElementById(id);
+
+let args = { mode: "register", ready: false, result: null };
+let video = $("video");
+let stream = null, fm = null, engineReady = false, running = false, busy = false;
+let state = "idle";          // idle | register | attend | verifying | cool
+let voiceOn = true;
+
+/* ================= constants ================= */
+const STEPS = [
+  { id: "straight", chip: "Straight", say: "Look straight at the camera", hint: "Keep your face in the circle", n: 8 },
+  { id: "left",     chip: "Left",     say: "Now turn your face left",     hint: "Slowly turn to your left",      n: 6 },
+  { id: "right",    chip: "Right",    say: "Now turn your face right",    hint: "Slowly turn to your right",     n: 6 },
+  { id: "up",       chip: "Up",       say: "Now look up",                 hint: "Lift your chin a little",       n: 6 },
+  { id: "down",     chip: "Down",     say: "Now look down",               hint: "Lower your chin a little",      n: 6 },
+];
+const TICKS = 60;
+
+/* ================= ring ticks ================= */
+(function buildRing() {
+  const ring = $("ring"); let h = "";
+  for (let i = 0; i < TICKS; i++) {
+    const a = (i / TICKS) * Math.PI * 2 - Math.PI / 2;
+    const r1 = 182, r2 = 196;
+    h += `<line data-i="${i}" x1="${200 + Math.cos(a) * r1}" y1="${200 + Math.sin(a) * r1}" x2="${200 + Math.cos(a) * r2}" y2="${200 + Math.sin(a) * r2}"/>`;
+  }
+  ring.innerHTML = h;
+})();
+const tickEls = [...document.querySelectorAll("#ring line")];
+function setTicks(n, cls = "on") {
+  tickEls.forEach((el, i) => { el.setAttribute("class", i < n ? cls : ""); });
+}
+
+/* ================= voice + beep ================= */
+let audioCtx = null, lastSpeak = 0, lastSpoken = "";
+function speak(text, force = false) {
+  if (!voiceOn || !text || !("speechSynthesis" in window)) return;
+  const now = performance.now();
+  if (!force && (text === lastSpoken && now - lastSpeak < 8000)) return;
+  if (!force && now - lastSpeak < 2800) return;
+  try {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "en-US"; u.rate = 1; u.pitch = 1;
+    speechSynthesis.speak(u);
+    lastSpeak = now; lastSpoken = text;
+  } catch (e) {}
+}
+function beep(freq = 880, ms = 110) {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.frequency.value = freq; o.type = "sine";
+    g.gain.value = 0.06; o.connect(g); g.connect(audioCtx.destination);
+    o.start(); o.stop(audioCtx.currentTime + ms / 1000);
+  } catch (e) {}
+}
+
+/* ================= UI helpers ================= */
+function showMsg(text, sub = "", tone = "") {
+  const m = $("msg"); m.textContent = text; m.className = "msg " + tone;
+  $("sub").textContent = sub;
+}
+function setArrow(dir) {
+  document.querySelectorAll(".arrow").forEach(a => a.classList.toggle("show", a.dataset.dir === dir));
+}
+function setBadge(kind) {
+  const b = $("badge");
+  $("sweep").style.visibility = kind ? "hidden" : "visible";
+  if (!kind) { b.hidden = true; b.innerHTML = ""; $("circle").classList.remove("dim"); return; }
+  const col = kind === "ok" ? "#3ee0b0" : kind === "warn" ? "#f5c25c" : "#ff7a6b";
+  const path = kind === "ok" ? "M16 33l11 11 21-24"
+             : kind === "warn" ? "M32 14v24M32 48v2"
+             : "M18 18l28 28M46 18L18 46";
+  b.innerHTML = `<svg viewBox="0 0 64 64" fill="none"><circle cx="32" cy="32" r="29" fill="rgba(5,11,18,.72)" stroke="${col}" stroke-width="3"/>
+    <path class="path" d="${path}" stroke="${col}" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  b.hidden = false; $("circle").classList.add("dim");
+}
+function setChips(active) {
+  const c = $("chips");
+  if (args.mode !== "register") { c.innerHTML = `<div class="chip now"><i></i>Live attendance</div>`; return; }
+  c.innerHTML = STEPS.map((s, i) =>
+    `<div class="chip ${i < active ? "done" : i === active ? "now" : ""}"><i></i>${s.chip}</div>`).join("");
+}
+function setCard(html) { $("card").innerHTML = html || ""; }
+function setActions(html) { $("actions").innerHTML = html || ""; }
+function frameHeight() {
+  if (document.fullscreenElement || state === "idle") return;
+  setHeight(Math.max(600, Math.min((screen.height || 800) - 140, 860)));
+}
+
+/* ================= idle ================= */
+function renderIdle() {
+  const reg = args.mode === "register";
+  $("idleTitle").textContent = reg ? "Live face verification" : "Live attendance";
+  $("idleText").textContent = reg
+    ? "A live camera scan will verify your face. Look straight, then slowly turn left, right, up and down until the circle completes."
+    : "Tap start, then stand in front of the camera. Your face is detected automatically and attendance is marked in a moment.";
+  $("startBtn").textContent = reg ? "Start face verification" : "Start attendance camera";
+  const need = reg && !args.ready;
+  $("startBtn").disabled = need;
+  $("startHint").textContent = need ? "Enter the student name and father's name first." : "";
+}
+
+/* ================= camera + engine ================= */
+function loadScript(src) {
+  return new Promise((res, rej) => {
+    const s = document.createElement("script");
+    s.src = src; s.onload = res; s.onerror = () => rej(new Error("Could not load " + src));
+    document.head.appendChild(s);
+  });
+}
+async function startEngine() {
+  if (engineReady) return;
+  $("loaderText").textContent = "Loading face engine…";
+  await loadScript("mp/face_mesh.js");
+  fm = new FaceMesh({ locateFile: f => "mp/" + f });
+  fm.setOptions({ maxNumFaces: 2, refineLandmarks: false, minDetectionConfidence: 0.6, minTrackingConfidence: 0.6 });
+  fm.onResults(onResults);
+  await fm.initialize();
+  engineReady = true;
+}
+async function openCamera() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    throw new Error("Camera needs a secure (https) connection. Open this app with https:// or on localhost.");
+  }
+  stream = await navigator.mediaDevices.getUserMedia({
+    video: { facingMode: "user", width: { ideal: 720 }, height: { ideal: 720 } }, audio: false,
+  });
+  video.srcObject = stream;
+  await video.play();
+}
+function stopCamera() {
+  running = false;
+  if (stream) stream.getTracks().forEach(t => t.stop());
+  stream = null; video.srcObject = null;
+}
+
+async function begin() {
+  try { audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)(); audioCtx.resume && audioCtx.resume(); } catch (e) {}
+  try { speechSynthesis.cancel(); } catch (e) {}
+  // fullscreen (desktop + Android); iPhone falls back to a tall frame
+  try { if (document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen({ navigationUI: "hide" }); } catch (e) {}
+
+  $("idle").hidden = true; $("stage").hidden = false;
+  $("loader").hidden = false; $("loaderText").textContent = "Opening camera…";
+  state = "loading"; frameHeight();
+  try {
+    await openCamera();
+    await startEngine();
+  } catch (err) {
+    $("loader").hidden = true;
+    stopCamera();
+    $("stage").hidden = true; $("idle").hidden = false; state = "idle";
+    $("startHint").textContent = (err && err.name === "NotAllowedError")
+      ? "Camera permission was blocked. Allow the camera and try again."
+      : (err && err.message) || "Could not start the camera.";
+    exitFullscreen(); setHeight(380);
+    return;
+  }
+  $("loader").hidden = true;
+  running = true; busy = false;
+  startFlow();
+  loop();
+}
+function exitFullscreen() { try { if (document.fullscreenElement) document.exitFullscreen(); } catch (e) {} }
+function closeAll() {
+  stopCamera(); exitFullscreen();
+  try { speechSynthesis.cancel(); } catch (e) {}
+  state = "idle"; pending = null;
+  $("stage").hidden = true; $("idle").hidden = false;
+  setBadge(null); setArrow(null); setTicks(0);
+  renderIdle(); setHeight(380);
+}
+
+async function loop() {
+  if (!running) return;
+  if (video.readyState >= 2 && !busy) {
+    busy = true;
+    try { await fm.send({ image: video }); } catch (e) {}
+    busy = false;
+  }
+  requestAnimationFrame(loop);
+}
+
+/* ================= face measurements ================= */
+function measure(lm) {
+  const vw = video.videoWidth, vh = video.videoHeight;
+  let minx = 1e9, maxx = -1e9, miny = 1e9, maxy = -1e9;
+  for (let i = 0; i < lm.length; i++) {
+    const x = lm[i].x * vw, y = lm[i].y * vh;
+    if (x < minx) minx = x; if (x > maxx) maxx = x;
+    if (y < miny) miny = y; if (y > maxy) maxy = y;
+  }
+  const side = Math.min(vw, vh), sx = (vw - side) / 2, sy = (vh - side) / 2;
+  const nose = lm[1], a = lm[234], b = lm[454], top = lm[10], chin = lm[152], e1 = lm[33], e2 = lm[263];
+  let roll = Math.atan2((e2.y - e1.y) * vh, (e2.x - e1.x) * vw);
+  roll = Math.max(-0.6, Math.min(0.6, roll));
+  return {
+    minx, maxx, miny, maxy, roll,
+    cx: ((minx + maxx) / 2 - sx) / side, cy: ((miny + maxy) / 2 - sy) / side,
+    hs: (maxy - miny) / side,
+    r: (nose.x - Math.min(a.x, b.x)) / Math.max(1e-6, Math.abs(b.x - a.x)),   // <0.5: user turned right, >0.5: user turned left
+    p: (nose.y - top.y) / Math.max(1e-6, (chin.y - top.y)),                    // smaller: looking up, larger: looking down
+    nx: nose.x * vw, ny: nose.y * vh,
+  };
+}
+
+const smallCtx = $("small").getContext("2d", { willReadFrequently: true });
+function lumOf(sx, sy, sw, sh) {
+  smallCtx.drawImage(video, sx, sy, sw, sh, 0, 0, 32, 32);
+  const d = smallCtx.getImageData(0, 0, 32, 32).data; let s = 0;
+  for (let i = 0; i < d.length; i += 4) s += 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+  return s / 1024;
+}
+let lightCache = { faceL: 128, frameL: 128 }, lightTick = 0;
+function updateLight(m) {
+  if ((lightTick++ % 6) !== 0) return;
+  const w = (m.maxx - m.minx) * 0.7, h = (m.maxy - m.miny) * 0.7;
+  const x = (m.minx + m.maxx) / 2 - w / 2, y = (m.miny + m.maxy) / 2 - h / 2;
+  lightCache = {
+    faceL: lumOf(Math.max(0, x), Math.max(0, y), Math.max(8, w), Math.max(8, h)),
+    frameL: lumOf(0, 0, video.videoWidth, video.videoHeight),
+  };
+}
+
+const workCtx = $("work").getContext("2d");
+function cropFace(m) {
+  const side = Math.max(m.maxx - m.minx, m.maxy - m.miny) * 1.18;
+  const cx = (m.minx + m.maxx) / 2, cy = (m.miny + m.maxy) / 2;
+  workCtx.setTransform(1, 0, 0, 1, 0, 0);
+  workCtx.fillStyle = "#808080"; workCtx.fillRect(0, 0, 224, 224);
+  workCtx.translate(112, 112); workCtx.rotate(-m.roll);
+  workCtx.scale(224 / side, 224 / side); workCtx.translate(-cx, -cy);
+  workCtx.drawImage(video, 0, 0);
+  return $("work").toDataURL("image/jpeg", 0.88);
+}
+
+/* what is wrong with the picture right now? (null = good) */
+function issueFor(m, relaxed) {
+  if (m.hs < 0.40) return { text: "Come a little closer", sub: "Your face should fill the circle", key: "far" };
+  if (m.hs > 0.88) return { text: "Move back a little", sub: "Your face is too close to the camera", key: "near" };
+  const lim = relaxed ? 0.30 : 0.20;
+  if (Math.abs(m.cx - 0.5) > lim || Math.abs(m.cy - 0.5) > lim)
+    return { text: "Center your face in the circle", sub: "", key: "center" };
+  const L = lightCache;
+  if (L.faceL < 62) return { text: "Too dark. Move to a brighter place", sub: "Face a light or a window", key: "dark" };
+  if (L.faceL > 222) return { text: "Too bright. Avoid direct light", sub: "Step out of the glare", key: "bright" };
+  if (L.frameL > 105 && L.faceL < L.frameL * 0.58)
+    return { text: "Light is behind you. Face the light", sub: "Turn so the light falls on your face", key: "back" };
+  return null;
+}
+
+/* ================= register flow ================= */
+let step = 0, stepGot = 0, okStreak = 0, lastCap = 0, stepStart = 0;
+let regFrames = [], baseR = [], baseP = [], base = { r: 0.5, p: 0.6 };
+let pending = null, pendingAt = 0;
+
+function median(a) { const s = [...a].sort((x, y) => x - y); return s.length ? s[Math.floor(s.length / 2)] : 0; }
+function poseOk(id, m) {
+  const k = (performance.now() - stepStart > 10000) ? 0.65 : 1;   // easier if the person is struggling
+  switch (id) {
+    case "straight": return Math.abs(m.r - 0.5) < 0.075 / k && m.p > 0.45 && m.p < 0.78;
+    case "left":     return m.r > base.r + 0.085 * k;
+    case "right":    return m.r < base.r - 0.085 * k;
+    case "up":       return m.p < base.p - 0.05 * k;
+    case "down":     return m.p > base.p + 0.06 * k;
+  }
+  return false;
+}
+
+function startFlow() {
+  setBadge(null); setCard(""); setActions("");
+  if (args.mode === "register") {
+    state = "register"; step = 0; stepGot = 0; okStreak = 0; regFrames = []; baseR = []; baseP = [];
+    setChips(0); setTicks(0); $("sweep").hidden = true;
+    announceStep();
+  } else {
+    state = "attend"; okStreak = 0; capBuf = []; setChips(0); setTicks(0); $("sweep").hidden = false;
+    showMsg("Show your face in the circle", "Stand in front of the camera", "");
+    speak("Show your face in the circle", true);
+  }
+}
+function announceStep() {
+  const s = STEPS[step];
+  stepStart = performance.now();
+  setChips(step); setArrow(null);
+  showMsg(s.say, s.hint, "");
+  speak(s.say, true);
+}
+function tickCount() {
+  let t = 0;
+  STEPS.forEach((s, i) => { const f = i < step ? 1 : i === step ? Math.min(1, stepGot / s.n) : 0; t += f * (TICKS / STEPS.length); });
+  return Math.round(t);
+}
+
+function onRegister(m) {
+  const s = STEPS[step];
+  const issue = issueFor(m, step > 0);
+  if (issue) {
+    okStreak = 0; setArrow(null); showMsg(issue.text, issue.sub, "warn"); setTicks(tickCount(), "warn"); speak(issue.text); return;
+  }
+  setTicks(tickCount(), "on");
+  if (!poseOk(s.id, m)) {
+    okStreak = 0; showMsg(s.say, s.hint, ""); setArrow(s.id === "straight" ? null : s.id); return;
+  }
+  okStreak++;
+  if (okStreak < 3) return;
+  setArrow(null); showMsg("Good, hold it…", "", "good");
+  const now = performance.now();
+  if (now - lastCap < 150) return;
+  lastCap = now;
+  regFrames.push(cropFace(m)); stepGot++;
+  if (step === 0) { baseR.push(m.r); baseP.push(m.p); }
+  setTicks(tickCount(), "on");
+  if (stepGot >= s.n) {
+    if (step === 0) { base = { r: median(baseR), p: median(baseP) }; }
+    beep(step === STEPS.length - 1 ? 1175 : 880);
+    step++; stepGot = 0; okStreak = 0;
+    if (step >= STEPS.length) finishRegister(); else announceStep();
+  }
+}
+function finishRegister() {
+  state = "verifying"; setChips(STEPS.length); setTicks(TICKS, "on"); setArrow(null);
+  showMsg("Verifying your face…", "Please wait a moment", "good");
+  pending = "r" + Date.now() + Math.floor(Math.random() * 1e6); pendingAt = performance.now();
+  setValue({ type: "register", nonce: pending, frames: regFrames });
+}
+
+/* ================= attendance flow ================= */
+let capBuf = [], moveEMA = 0, lastNose = null, coolUntil = 0, needAbsent = false, absentSince = 0;
+const CAP_N = 5;
+
+function onAttend(m) {
+  // motion (blur) estimate
+  const fw = Math.max(1, m.maxx - m.minx);
+  if (lastNose) { const d = Math.hypot(m.nx - lastNose.x, m.ny - lastNose.y) / fw; moveEMA = moveEMA * 0.6 + d * 0.4; }
+  lastNose = { x: m.nx, y: m.ny };
+
+  let issue = issueFor(m, false);
+  if (!issue && !(Math.abs(m.r - 0.5) < 0.1 && m.p > 0.42 && m.p < 0.8))
+    issue = { text: "Look straight at the camera", sub: "", key: "turn" };
+  if (!issue && moveEMA > 0.05) issue = { text: "Hold still for a moment", sub: "", key: "move" };
+
+  if (issue) {
+    okStreak = 0; capBuf = []; setTicks(0); showMsg(issue.text, issue.sub, "warn"); speak(issue.text); return;
+  }
+  okStreak++;
+  showMsg("Face detected", "Hold still…", "good");
+  setTicks(Math.min(TICKS, Math.round(okStreak / 8 * TICKS * 0.5)), "on");
+  if (okStreak < 8) return;
+  const now = performance.now();
+  if (now - lastCap < 140) return;
+  lastCap = now;
+  capBuf.push(cropFace(m));
+  setTicks(Math.round(TICKS * (0.5 + 0.5 * capBuf.length / CAP_N)), "on");
+  if (capBuf.length >= CAP_N) {
+    state = "verifying"; showMsg("Checking…", "Matching your face", "good");
+    pending = "a" + Date.now() + Math.floor(Math.random() * 1e6); pendingAt = performance.now();
+    setValue({ type: "attend", nonce: pending, frames: capBuf });
+    capBuf = []; okStreak = 0;
+  }
+}
+
+/* ================= results from Python ================= */
+const handled = new Set();
+function onResult(r) {
+  if (!r || !pending || r.nonce !== pending || handled.has(r.nonce)) return;
+  handled.add(r.nonce); pending = null;
+  setArrow(null);
+  if (args.mode === "register") {
+    if (r.ok) {
+      state = "done"; setBadge("ok"); setTicks(TICKS, "on");
+      showMsg("Registration successful", r.name + (r.father ? "  ·  S/O " + r.father : ""), "good");
+      setCard(`<div class="pill">${esc(r.roll)}</div><div class="pill plain">${esc(r.joined || "")}</div>`);
+      setActions(`<button class="btn" id="doneBtn" type="button">Done</button>`);
+      $("doneBtn").onclick = closeAll;
+      speak("Registration successful", true); beep(1175, 220);
+    } else {
+      state = "failed"; setBadge("bad"); setTicks(TICKS, "bad");
+      showMsg(r.title || "Could not verify", r.message || "Please try again", "bad");
+      setActions(`<button class="btn" id="retryBtn" type="button">Try again</button><button class="btn ghost" id="cancelBtn" type="button">Cancel</button>`);
+      $("retryBtn").onclick = () => { setBadge(null); startFlow(); };
+      $("cancelBtn").onclick = closeAll;
+      speak(r.message || "Could not verify. Please try again.", true);
+    }
+    return;
+  }
+  // attendance
+  const first = (r.name || "").split(" ")[0];
+  const when = r.time ? r.time.slice(0, 5) : "";
+  state = "cool"; coolUntil = performance.now() + 3200; absentSince = 0;
+  if (r.status === "marked") {
+    setBadge("ok"); setTicks(TICKS, "on"); needAbsent = true;
+    showMsg("Attendance marked", r.name, "good");
+    setCard(`<div class="pill">${esc(r.roll)}</div><div class="pill plain">${esc(when)}</div>`);
+    speak(`${first}, your attendance has been marked`, true); beep(1175, 200);
+  } else if (r.status === "already") {
+    setBadge("ok"); setTicks(TICKS, "on"); needAbsent = true;
+    showMsg("Already marked today", r.name, "good");
+    setCard(`<div class="pill">${esc(r.roll)}</div><div class="pill plain">${esc(when)}</div>`);
+    speak(`${first}, your attendance is already marked`, true);
+  } else if (r.status === "unclear") {
+    setBadge("warn"); setTicks(TICKS, "warn"); needAbsent = false; coolUntil = performance.now() + 2800;
+    showMsg("Face not clear", "Move to a brighter place and face the camera", "warn");
+    speak("Your face is not clear. Please move to the light and look at the camera", true);
+  } else if (r.status === "no_model") {
+    setBadge("warn"); setTicks(TICKS, "warn"); needAbsent = false; coolUntil = performance.now() + 3500;
+    showMsg("No students registered yet", "Register a student first", "warn");
+    speak("No students are registered yet", true);
+  } else {
+    setBadge("bad"); setTicks(TICKS, "bad"); needAbsent = false; coolUntil = performance.now() + 2800;
+    showMsg("Face not recognized", "Register first, or try again in better light", "bad");
+    speak("Face not recognized. Please register first or try again", true);
+  }
+}
+function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+
+/* ================= per-frame entry ================= */
+function onResults(res) {
+  if (!running) return;
+  const faces = res.multiFaceLandmarks || [];
+  const now = performance.now();
+
+  if (state === "verifying") {
+    if (pending && now - pendingAt > 30000) {
+      pending = null; setBadge("bad");
+      showMsg("Connection is slow", "Please try again", "bad");
+      setActions(`<button class="btn" id="retryBtn" type="button">Try again</button>`);
+      $("retryBtn").onclick = () => { setBadge(null); setActions(""); startFlow(); };
+      state = "failed";
+    }
+    return;
+  }
+  if (state === "done" || state === "failed") return;
+
+  if (state === "cool") {
+    if (!faces.length) { if (!absentSince) absentSince = now; } else absentSince = 0;
+    const absentOk = !needAbsent || (absentSince && now - absentSince > 900);
+    if (now > coolUntil && absentOk) {
+      setBadge(null); setCard(""); setTicks(0); state = "attend"; okStreak = 0; capBuf = []; lastNose = null;
+      showMsg("Show your face in the circle", "Next person, please", "");
+    }
+    return;
+  }
+
+  if (!faces.length) {
+    okStreak = 0; capBuf = []; lastNose = null; setArrow(null);
+    if (state === "register") {
+      setTicks(tickCount(), "warn"); showMsg("Show your face in the circle", STEPS[step].hint, "warn");
+    } else { setTicks(0); showMsg("Show your face in the circle", "Stand in front of the camera", ""); }
+    return;
+  }
+  if (faces.length > 1) {
+    okStreak = 0; capBuf = []; setArrow(null);
+    showMsg("Only one person, please", "Make sure nobody else is in the frame", "warn"); speak("Only one person, please");
+    return;
+  }
+  const m = measure(faces[0]);
+  updateLight(m);
+  if (state === "register") onRegister(m);
+  else if (state === "attend") onAttend(m);
+}
+
+/* ================= wiring ================= */
+$("startBtn").addEventListener("click", begin);
+$("closeBtn").addEventListener("click", closeAll);
+$("muteBtn").addEventListener("click", () => {
+  voiceOn = !voiceOn; $("muteBtn").textContent = voiceOn ? "🔊" : "🔇";
+  if (!voiceOn) { try { speechSynthesis.cancel(); } catch (e) {} }
+});
+document.addEventListener("fullscreenchange", () => { if (!document.fullscreenElement && state !== "idle") frameHeight(); });
+window.addEventListener("pagehide", stopCamera);
+
+window.addEventListener("message", ev => {
+  const d = ev.data;
+  if (!d || d.type !== "streamlit:render") return;
+  args = d.args || {};
+  if (state === "idle") { renderIdle(); setHeight(380); }
+  if (args.result) onResult(args.result);
+});
+sl("streamlit:componentReady", { apiVersion: 1 });
+setHeight(380);
+</script>
+</body>
+</html>
