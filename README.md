@@ -1,5 +1,9 @@
 # Face Attendance System
 
+
+
+
+
 Live face registration and attendance. No photo uploads: everything is verified by a live camera
 scan inside a full-screen circle, on desktop and on mobile.
 
